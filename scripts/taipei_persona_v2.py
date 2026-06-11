@@ -1,17 +1,23 @@
 import pandas as pd
 import numpy as np
 
-rng = np.random.default_rng(42)
+from pipeline_common import (
+    TAIPEI_DATA_DIR, TAIPEI_DATA_2020_DIR, DATA_DIR,
+    data_path, STAGE_FILES, PERSONAS_SHEET, make_rng,
+    DISTRICTS, AGE_GROUP_LABELS as GROUP_LABELS, OCC_CATS, age_to_group,
+)
 
-BASE_TP      = "../taipei_data/"
-BASE_TP_2020 = "../taipei_data_2020/"
-BASE         = "../data/"
+rng = make_rng()
+
+# 路徑前綴改為絕對（錨定 repo root），使本腳本與 CWD 無關。
+BASE_TP      = str(TAIPEI_DATA_DIR) + "/"
+BASE_TP_2020 = str(TAIPEI_DATA_2020_DIR) + "/"
+BASE         = str(DATA_DIR) + "/"
 
 # ── 1. 居住地 & 性別（113_genderXarea.ods 12月份）─────────────────────────────
 df_gender = pd.read_excel(BASE_TP + "113_genderXarea.ods", engine="odf", sheet_name="12月", header=None)
 
-DISTRICTS = ['松山區','信義區','大安區','中山區','中正區','大同區',
-             '萬華區','文山區','南港區','內湖區','士林區','北投區']
+# DISTRICTS（12 行政區，有序）由 pipeline_common 匯入（去重，值不變）
 
 pop_data = {}   # {district: (total, male, female)}
 for i in range(4, 16):
@@ -70,15 +76,7 @@ for dist, ridx in DIST_AGE_ROW.items():
     total = sum(counts.values())
     age5_weights[dist] = {band: cnt / total for band, cnt in counts.items()} if total > 0 else {band: 1/len(AGE5_COLS) for band in AGE5_COLS}
 
-GROUP_LABELS = ['15–24歲','25–34歲','35–44歲','45–54歲','55–64歲','65歲以上']
-
-def age_to_group(a):
-    if a <= 24: return '15–24歲'
-    if a <= 34: return '25–34歲'
-    if a <= 44: return '35–44歲'
-    if a <= 54: return '45–54歲'
-    if a <= 64: return '55–64歲'
-    return '65歲以上'
+# GROUP_LABELS（6 年齡組）與 age_to_group() 由 pipeline_common 匯入（去重，值不變）
 
 def sample_age(district):
     w = age5_weights[district]
@@ -185,8 +183,7 @@ def p_married(age, district):
     return min(base * district_marry_factor.get(district, 1.0), 1.0)
 
 # ── 5. 職業（113_career.png 數字，臺北市就業結構）────────────────────────────
-OCC_CATS = ['管理/主管','專業人員','技術/助理專業','事務人員','服務/銷售','農林漁牧','技術工/勞工']
-
+# OCC_CATS（7 職業類別，有序）由 pipeline_common 匯入（去重，值不變）
 _occ_raw = np.array([418, 1236, 581, 1059, 761, 4, 650], dtype=float)
 TAIPEI_OCC_W = _occ_raw / _occ_raw.sum()
 
@@ -588,11 +585,11 @@ for g in GROUP_LABELS:
         print(f'  {g}: 生成平均={sub.mean():.2f}  (民調參考={ref})')
 
 # ── 11. 儲存 Excel ─────────────────────────────────────────────────────────
-out_path = BASE + "taipei_personas_3000_v2.xlsx"
+out_path = data_path(STAGE_FILES["v2"])
 with pd.ExcelWriter(out_path, engine='openpyxl') as writer:
 
     # Sheet 1: Personas
-    df_out.to_excel(writer, sheet_name='Personas', index=False)
+    df_out.to_excel(writer, sheet_name=PERSONAS_SHEET, index=False)
 
     # Sheet 2: 政黨傾向驗證（全市 + 各區）
     party_rows = []

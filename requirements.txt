@@ -1,0 +1,7 @@
+# Taipei persona pipeline 執行所需套件
+# 安裝：pip install -r requirements.txt
+pandas>=2.0
+numpy>=1.24
+openpyxl>=3.1   # .xlsx 讀寫（pipeline 各階段輸出）
+odfpy>=1.4      # .ods 讀取（taipei_data/113_*.ods 普查來源）
+xlrd>=2.0       # 舊式 .xls 讀取（taipei_data_2020/ 2020 中選會檔）

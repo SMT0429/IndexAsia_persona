@@ -15,12 +15,10 @@ taipei_value.py
 
 import pandas as pd
 import numpy as np
-import os
 
-INPUT  = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_splitTicket.xlsx")
-OUTPUT = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_value.xlsx")
+from pipeline_common import read_stage, write_stage
 
-df = pd.read_excel(INPUT)
+df = read_stage("splitTicket")
 
 # ── 工具函式 ──────────────────────────────────────────────────────────────────
 
@@ -195,9 +193,9 @@ df["社會價值觀_核心動機"] = df["社會價值觀_主類型"].map(MOTIVAT
 # ── 清理暫存欄位並輸出 ────────────────────────────────────────────────────────
 
 df.drop(columns=["_co_raw", "_st_raw"], inplace=True)
-df.to_excel(OUTPUT, index=False)
+out = write_stage(df, "value")
 
-print(f"輸出完成：{OUTPUT}")
+print(f"輸出完成：{out}")
 print(f"欄位數：{len(df.columns)}（新增 4 欄）")
 print()
 print("=== 主類型分布 ===")

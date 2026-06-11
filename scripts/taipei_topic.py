@@ -13,15 +13,15 @@ taipei_topic.py
 
 import pandas as pd
 import numpy as np
-import os
 from collections import Counter
 
-INPUT  = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_value.xlsx")
-OUTPUT = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_topic.xlsx")
+from pipeline_common import read_stage, write_stage
 
+# 刻意保留舊式全域種子（np.random.seed + randint/choice）；
+# 換成 default_rng 會改變抽樣序列→改變輸出。
 np.random.seed(42)
 
-df = pd.read_excel(INPUT)
+df = read_stage("value")
 
 # ── 議題代號、類別全名、代表子議題 ────────────────────────────────────────────
 
@@ -170,5 +170,5 @@ for label, count in sorted(label_counts.items(), key=lambda x: -x[1]):
 
 # ── 輸出 ───────────────────────────────────────────────────────────────────────
 
-df.to_excel(OUTPUT, index=False)
-print(f"\n已輸出：{OUTPUT}（{len(df)} 筆，{len(df.columns)} 欄）")
+out = write_stage(df, "topic")
+print(f"\n已輸出：{out}（{len(df)} 筆，{len(df.columns)} 欄）")

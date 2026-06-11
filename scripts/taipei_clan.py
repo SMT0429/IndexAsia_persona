@@ -13,12 +13,10 @@ taipei_clan.py
 """
 
 import pandas as pd
-import os
 
-INPUT  = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_speakingStyle.xlsx")
-OUTPUT = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_clan.xlsx")
+from pipeline_common import read_stage, write_stage
 
-df = pd.read_excel(INPUT)
+df = read_stage("speakingStyle")
 
 # ── 第一層：族群基礎分 ────────────────────────────────────────────────────────
 ETHNIC_BASE = {
@@ -88,5 +86,5 @@ print("\n=== 族群 × 平均分 ===")
 print(df.groupby('族群')['宗親地方組織連結強度'].mean().round(2).to_string())
 
 # ── 輸出 ──────────────────────────────────────────────────────────────────────
-df.to_excel(OUTPUT, index=False)
-print(f"\n已輸出：{OUTPUT}（{len(df)} 筆，{len(df.columns)} 欄）")
+out = write_stage(df, "clan")
+print(f"\n已輸出：{out}（{len(df)} 筆，{len(df.columns)} 欄）")
