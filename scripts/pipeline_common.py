@@ -20,24 +20,38 @@ import numpy as np
 import pandas as pd
 
 # ── 路徑（CWD 無關，錨定 scripts/ 的上一層 = repo root）────────────────────────
+# data/ 重整為三層：raw/（原始輸入）、WIP/（pipeline 中繼）、taipei_final/（交付）。
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
-TAIPEI_DATA_DIR = REPO_ROOT / "taipei_data"
-TAIPEI_DATA_2020_DIR = REPO_ROOT / "taipei_data_2020"
+RAW_DIR = DATA_DIR / "raw"           # 原始輸入：Basic.xlsx、Political.xlsx、taiwan_political_events/…
+WIP_DIR = DATA_DIR / "WIP"           # pipeline 12 階段中繼檔（STAGE_FILES）
+FINAL_DIR = DATA_DIR / "taipei_final"  # 最終交付檔（taipei_finalize.py 輸出）
+TAIPEI_DATA_DIR = RAW_DIR / "census"           # 普查來源（113_*.ods 等）
+TAIPEI_DATA_2020_DIR = RAW_DIR / "elections_2020"  # 2020 中選會 .xls
 
 
 def data_path(name: str) -> Path:
-    """data/ 下檔案的絕對路徑。"""
+    """data/ 根目錄下檔案的絕對路徑。"""
     return DATA_DIR / name
 
 
+def raw_path(name: str) -> Path:
+    """原始輸入檔的絕對路徑（data/raw/ 下，如 Basic.xlsx、Political.xlsx、taiwan_political_events/）。"""
+    return RAW_DIR / name
+
+
+def stage_path(stage: str) -> Path:
+    """某 pipeline 階段中繼檔的絕對路徑（data/WIP/ 下）。"""
+    return WIP_DIR / STAGE_FILES[stage]
+
+
 def taipei_data_path(name: str) -> Path:
-    """taipei_data/ 下檔案的絕對路徑（113_*.ods 等普查來源）。"""
+    """data/raw/census/ 下檔案的絕對路徑（113_*.ods 等普查來源）。"""
     return TAIPEI_DATA_DIR / name
 
 
 def taipei_2020_path(name: str) -> Path:
-    """taipei_data_2020/ 下檔案的絕對路徑（2020 中選會 .xls）。"""
+    """data/raw/elections_2020/ 下檔案的絕對路徑（2020 中選會 .xls）。"""
     return TAIPEI_DATA_2020_DIR / name
 
 
@@ -71,16 +85,17 @@ def read_stage(stage: str, *, sheet_name=0) -> pd.DataFrame:
     """
     if stage == "v2" and sheet_name == 0:
         sheet_name = PERSONAS_SHEET
-    return pd.read_excel(data_path(STAGE_FILES[stage]), sheet_name=sheet_name)
+    return pd.read_excel(stage_path(stage), sheet_name=sheet_name)
 
 
 def write_stage(df: pd.DataFrame, stage: str) -> Path:
-    """把 df 寫到該階段的標準輸出檔（單 sheet, index 不寫）。
+    """把 df 寫到該階段的標準輸出檔（data/WIP/ 下，單 sheet, index 不寫）。
 
     注意：v2 為多 sheet 輸出，請勿用本函式（會吃掉 5 張驗證表），
-    v2 仍以自有 ExcelWriter 輸出，只是輸出路徑改用 data_path(STAGE_FILES['v2'])。
+    v2 仍以自有 ExcelWriter 輸出，只是輸出路徑改用 stage_path('v2')。
     """
-    out = data_path(STAGE_FILES[stage])
+    out = stage_path(stage)
+    out.parent.mkdir(parents=True, exist_ok=True)
     df.to_excel(out, index=False)
     return out
 
