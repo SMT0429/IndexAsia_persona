@@ -11,3 +11,6 @@ __pycache__/
 
 # Excel temp lock files
 ~$*
+
+# Pipeline 中繼檔（可由 scripts/run_pipeline.py 重生，不入庫）
+data/WIP/
