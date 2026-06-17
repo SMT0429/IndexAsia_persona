@@ -1,11 +1,8 @@
 import random
 import pandas as pd
-from pathlib import Path
 
-BASE = Path(__file__).parent.parent / "data"
-
-INPUT_FILE  = BASE / "taipei_personas_3000_politicalEvent.xlsx"
-OUTPUT_FILE = BASE / "taipei_personas_3000_industry.xlsx"
+# 注意：本腳本刻意使用 stdlib random（非 numpy）；換 RNG 引擎會改變抽樣序列→改變輸出。
+from pipeline_common import read_stage, write_stage, NON_EMP_MARKER, NON_EMPLOYED_OCCS
 
 INDUSTRIES = [
     '農林漁牧業', '製造業', '工程及公用事業', '批發及零售業',
@@ -14,7 +11,7 @@ INDUSTRIES = [
     '教育業', '醫療保健及社會工作', '其他服務業',
 ]
 
-NON_EMPLOYED = {'退休', '學生', '家管', '其他/待業'}
+# NON_EMPLOYED_OCCS、NON_EMP_MARKER 由 pipeline_common 匯入（去重，值不變）
 
 # 職業別條件機率權重矩陣（相對權重，未正規化）
 # 依 method/industry_column_methodology.md 第 5.2 節
@@ -85,8 +82,8 @@ def sample_by_occupation(occupation: str) -> str:
 
 
 def assign_industry(occ: str) -> str:
-    if occ in NON_EMPLOYED:
-        return '無（非就業人口）'
+    if occ in NON_EMPLOYED_OCCS:
+        return NON_EMP_MARKER
     if occ == '農林漁牧':
         return '農林漁牧業'
     return sample_by_occupation(occ)
@@ -95,15 +92,15 @@ def assign_industry(occ: str) -> str:
 def main():
     random.seed(42)
 
-    df = pd.read_excel(INPUT_FILE)
+    df = read_stage("politicalEvent")
     df['產業別'] = df['職業'].apply(assign_industry)
-    df.to_excel(OUTPUT_FILE, index=False)
+    out = write_stage(df, "industry")
 
-    print(f"輸出完成：{OUTPUT_FILE}")
+    print(f"輸出完成：{out}")
     print(f"總行數：{len(df)}，欄位數：{len(df.columns)}")
 
-    non_emp = (df['產業別'] == '無（非就業人口）').sum()
-    employed = df[df['產業別'] != '無（非就業人口）']
+    non_emp = (df['產業別'] == NON_EMP_MARKER).sum()
+    employed = df[df['產業別'] != NON_EMP_MARKER]
     print(f"\n非就業人口：{non_emp} 人（{non_emp / len(df):.1%}）")
     print(f"就業人口：{len(employed)} 人（{len(employed) / len(df):.1%}）")
 

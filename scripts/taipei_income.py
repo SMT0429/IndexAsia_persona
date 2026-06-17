@@ -1,17 +1,11 @@
 import pandas as pd
 import numpy as np
 
-df = pd.read_excel("data/taipei_personas_3000_industry.xlsx")
+from pipeline_common import read_stage, write_stage, make_rng, INCOME_LABELS
 
-# 台北市調整後的月收入區間（Section 三）
-INCOME_LABELS = [
-    "4萬以下",
-    "4~6萬",
-    "6~10萬",
-    "10~15萬",
-    "15~25萬",
-    "25萬以上",
-]
+df = read_stage("industry")
+
+# INCOME_LABELS（6 月收入區間，有序）由 pipeline_common 匯入（去重，值不變）
 
 # 職業欄位對應方法論鍵值
 OCCUPATION_MAP = {
@@ -112,7 +106,7 @@ def get_income_label(occupation, education, age_group, rng, age=None):
     return rng.choice(INCOME_LABELS, p=adjusted)
 
 
-rng = np.random.default_rng(seed=42)
+rng = make_rng()
 
 df["月收入區間"] = df.apply(
     lambda row: get_income_label(
@@ -135,5 +129,5 @@ print(pd.crosstab(df["職業"], df["月收入區間"], normalize="index")[INCOME
 print("\n=== 教育程度 × 收入區間交叉表 ===")
 print(pd.crosstab(df["教育程度"], df["月收入區間"], normalize="index")[INCOME_LABELS].round(2))
 
-df.to_excel("data/taipei_personas_3000_income.xlsx", index=False)
-print("\n✅ 完成，已輸出至 data/taipei_personas_3000_income.xlsx")
+out = write_stage(df, "income")
+print(f"\n✅ 完成，已輸出至 {out}")

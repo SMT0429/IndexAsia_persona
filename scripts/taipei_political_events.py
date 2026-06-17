@@ -1,12 +1,9 @@
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
-BASE = Path(__file__).parent.parent / "data"
+from pipeline_common import read_stage, write_stage, raw_path
 
-PERSONAS_FILE = BASE / "taipei_personas_3000_v2.xlsx"
-EVENTS_FILE = BASE / "taiwan_political_events" / "taiwan_political_events.xlsx"
-OUTPUT_FILE = BASE / "taipei_personas_3000_politicalEvent.xlsx"
+EVENTS_FILE = raw_path("taiwan_political_events") / "taiwan_political_events.xlsx"
 
 YOUTH_MARKER = "成長經歷（非啟蒙年）"
 
@@ -26,7 +23,7 @@ def get_generation_label(age: int) -> str:
 
 
 def main():
-    personas = pd.read_excel(PERSONAS_FILE)
+    personas = read_stage("v2")
     events_df = pd.read_excel(EVENTS_FILE)
 
     # 只保留數值型的 20歲時的2026現齡（排除「成長經歷」文字列）
@@ -43,8 +40,8 @@ def main():
     personas["政治與歷史印記_世代"] = personas["年齡"].apply(lambda a: get_generation_label(int(a)))
     personas["政治與歷史印記_事件"] = personas["年齡"].apply(lambda a: nearest_event(int(a)))
 
-    personas.to_excel(OUTPUT_FILE, index=False)
-    print(f"輸出完成：{OUTPUT_FILE}")
+    out = write_stage(personas, "politicalEvent")
+    print(f"輸出完成：{out}")
     print(f"總行數：{len(personas)}，欄位數：{len(personas.columns)}")
 
 

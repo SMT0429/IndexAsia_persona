@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 
-df = pd.read_excel("data/taipei_personas_3000_income.xlsx")
+from pipeline_common import read_stage, write_stage, make_rng
+
+df = read_stage("income")
 
 CATEGORIES = ['傳統民間信仰', '無宗教', '佛教', '道教', '基督新教', '一貫道', '天主教', '其他宗教']
 
@@ -75,7 +77,7 @@ def assign_religion(age: int, rng) -> str:
     return rng.choice(CATEGORIES, p=adjusted)
 
 
-rng = np.random.default_rng(seed=42)
+rng = make_rng()
 
 df['宗教與地方信仰'] = df['年齡'].apply(lambda age: assign_religion(age, rng))
 
@@ -91,5 +93,5 @@ cross = pd.crosstab(
 )[CATEGORIES].round(3)
 print(cross)
 
-df.to_excel("data/taipei_personas_3000_religion.xlsx", index=False)
-print("\n✅ 完成，已輸出至 data/taipei_personas_3000_religion.xlsx")
+out = write_stage(df, "religion")
+print(f"\n✅ 完成，已輸出至 {out}")

@@ -14,12 +14,10 @@ taipei_speakingStyle.py
 """
 
 import pandas as pd
-import os
 
-INPUT  = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_topic.xlsx")
-OUTPUT = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_speakingStyle.xlsx")
+from pipeline_common import read_stage, write_stage
 
-df = pd.read_excel(INPUT)
+df = read_stage("topic")
 
 # ── 月收入轉數值（中位數代理）─────────────────────────────────────────────────
 # 使用實際資料標籤（來自 taipei_income.py INCOME_LABELS）
@@ -99,5 +97,5 @@ print("\n=== 說話風格_語言切換 ===")
 print(df['說話風格_語言切換'].value_counts(normalize=True).round(3).to_string())
 
 # ── 輸出 ──────────────────────────────────────────────────────────────────────
-df.to_excel(OUTPUT, index=False)
-print(f"\n已輸出：{OUTPUT}（{len(df)} 筆，{len(df.columns)} 欄）")
+out = write_stage(df, "speakingStyle")
+print(f"\n已輸出：{out}（{len(df)} 筆，{len(df.columns)} 欄）")

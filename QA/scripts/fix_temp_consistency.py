@@ -1,7 +1,7 @@
 """
 fix_temp_consistency.py
 依 QA/reports/consistency_check_taipei_personas_3000_temp_20260610.md 之 7 項發現，
-對 data/taipei_personas_3000_temp.xlsx 逐筆套用修正，原地覆蓋輸出。
+對 data/WIP/taipei_personas_3000_temp.xlsx 逐筆套用修正，原地覆蓋輸出。
 
 此修正邏輯與下列生成腳本的同步修正一致（未重跑整條 pipeline，僅針對受影響欄位
 做等效的後處理，以保留 QA 已驗證通過的 99.9% 既有資料與其象限不變量）：
@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 BASE = os.path.join(os.path.dirname(__file__), "..", "..")
-PATH = os.path.abspath(os.path.join(BASE, "data", "taipei_personas_3000_temp.xlsx"))
+PATH = os.path.abspath(os.path.join(BASE, "data", "WIP", "taipei_personas_3000_temp.xlsx"))
 
 NON_EMP_BASE = "無（非就業人口）"
 INCOME_LABELS = ["4萬以下", "4~6萬", "6~10萬", "10~15萬", "15~25萬", "25萬以上"]

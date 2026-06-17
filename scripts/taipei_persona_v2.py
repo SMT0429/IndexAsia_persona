@@ -1,17 +1,23 @@
 import pandas as pd
 import numpy as np
 
-rng = np.random.default_rng(42)
+from pipeline_common import (
+    TAIPEI_DATA_DIR, TAIPEI_DATA_2020_DIR, RAW_DIR,
+    stage_path, PERSONAS_SHEET, make_rng,
+    DISTRICTS, AGE_GROUP_LABELS as GROUP_LABELS, OCC_CATS, age_to_group,
+)
 
-BASE_TP      = "../taipei_data/"
-BASE_TP_2020 = "../taipei_data_2020/"
-BASE         = "../data/"
+rng = make_rng()
+
+# 路徑前綴改為絕對（錨定 repo root），使本腳本與 CWD 無關。
+BASE_TP      = str(TAIPEI_DATA_DIR) + "/"
+BASE_TP_2020 = str(TAIPEI_DATA_2020_DIR) + "/"
+BASE         = str(RAW_DIR) + "/"     # 原始輸入檔（Basic.xlsx、Political.xlsx）位於 data/raw/
 
 # ── 1. 居住地 & 性別（113_genderXarea.ods 12月份）─────────────────────────────
 df_gender = pd.read_excel(BASE_TP + "113_genderXarea.ods", engine="odf", sheet_name="12月", header=None)
 
-DISTRICTS = ['松山區','信義區','大安區','中山區','中正區','大同區',
-             '萬華區','文山區','南港區','內湖區','士林區','北投區']
+# DISTRICTS（12 行政區，有序）由 pipeline_common 匯入（去重，值不變）
 
 pop_data = {}   # {district: (total, male, female)}
 for i in range(4, 16):
@@ -70,15 +76,7 @@ for dist, ridx in DIST_AGE_ROW.items():
     total = sum(counts.values())
     age5_weights[dist] = {band: cnt / total for band, cnt in counts.items()} if total > 0 else {band: 1/len(AGE5_COLS) for band in AGE5_COLS}
 
-GROUP_LABELS = ['15–24歲','25–34歲','35–44歲','45–54歲','55–64歲','65歲以上']
-
-def age_to_group(a):
-    if a <= 24: return '15–24歲'
-    if a <= 34: return '25–34歲'
-    if a <= 44: return '35–44歲'
-    if a <= 54: return '45–54歲'
-    if a <= 64: return '55–64歲'
-    return '65歲以上'
+# GROUP_LABELS（6 年齡組）與 age_to_group() 由 pipeline_common 匯入（去重，值不變）
 
 def sample_age(district):
     w = age5_weights[district]
@@ -185,8 +183,7 @@ def p_married(age, district):
     return min(base * district_marry_factor.get(district, 1.0), 1.0)
 
 # ── 5. 職業（113_career.png 數字，臺北市就業結構）────────────────────────────
-OCC_CATS = ['管理/主管','專業人員','技術/助理專業','事務人員','服務/銷售','農林漁牧','技術工/勞工']
-
+# OCC_CATS（7 職業類別，有序）由 pipeline_common 匯入（去重，值不變）
 _occ_raw = np.array([418, 1236, 581, 1059, 761, 4, 650], dtype=float)
 TAIPEI_OCC_W = _occ_raw / _occ_raw.sum()
 
@@ -374,27 +371,17 @@ def _pool(age_grp, edu, gender_val):
             return sub
     return p
 
-def _sample_trust_by_party(party_pref, hi_cap=10.0):
-    """Issue 1：依政黨傾向生成國家認同（截斷常態 / 均勻分布）
-    hi_cap：Issue 3 由媒體習慣決定的 trust 上限"""
-    if party_pref == '民進黨':
-        mu, sigma, lo, hi = 7.2, 1.4, 3.0, min(10.0, hi_cap)
-    elif party_pref == '國民黨':
-        mu, sigma, lo, hi = 5.0, 2.0, 0.0, min(8.5, hi_cap)
-    elif party_pref == '台灣民眾黨':
-        mu, sigma, lo, hi = 6.0, 2.0, 1.0, min(10.0, hi_cap)
-    else:                           # 其他政黨：均勻分布
-        return round(float(rng.uniform(2.0, min(9.0, hi_cap))), 1)
-    while True:                     # rejection sampling（截斷常態）
-        v = rng.normal(mu, sigma)
-        if lo <= v <= hi:
-            return round(float(np.clip(v, 0, 10)), 1)
-
-def sample_political(age_grp, edu, gender_val, party_pref, hi_cap=10.0):
+def sample_political(age_grp, edu, gender_val, party_pref):
+    """國家認同與厭惡政黨依 analysis_report_v3 §3.3 之人口特徵分層比對生成；
+    政黨傾向（party_pref）仍由 2020 選舉得票決定，於外部傳入。"""
     pool = _pool(age_grp, edu, gender_val)
 
-    # 國家認同（Issue 1：依政黨傾向條件生成；Issue 3：hi_cap 限制上界）
-    trust = _sample_trust_by_party(party_pref, hi_cap)
+    # 國家認同（v3：自比對子樣本之信任分數抽一筆 + 常態擾動 σ=0.25，clip[0,10]）
+    tv = pool['trust'].dropna().values
+    if len(tv):
+        trust = round(float(np.clip(float(rng.choice(tv)) + rng.normal(0, 0.25), 0, 10)), 1)
+    else:
+        trust = round(float(rng.uniform(0, 10)), 1)
 
     # 厭惡政黨（Q13）：排除偏好黨
     dv = pool['party_dislike'].dropna()
@@ -484,20 +471,11 @@ for pid in range(1, n_total + 1):
         used = ['LINE'] + used
     media_str = '、'.join(used)
 
-    # 政黨傾向（選舉得票比例）
+    # 政黨傾向（2020 選舉得票比例）
     party_pref = rng.choice(PARTY_CATS, p=party_weights[dist])
 
-    # Issue 3：媒體含 WeChat/小紅書 時正向設定 trust 上限
-    _hi_cap = 10.0
-    if 'WeChat' in used and '小紅書' in used:
-        _hi_cap = 5.5
-    elif 'WeChat' in used:
-        _hi_cap = 6.0   # 確保 WeChat 用戶平均 trust ≤ 4.5
-    elif '小紅書' in used:
-        _hi_cap = 7.0
-
-    # 國家認同 & 厭惡政黨
-    trust, dislike = sample_political(age_grp, edu, gender, party_pref, _hi_cap)
+    # 國家認同 & 厭惡政黨（v3：人口特徵分層比對民調子樣本）
+    trust, dislike = sample_political(age_grp, edu, gender, party_pref)
 
     records.append({
         'id': pid,
@@ -588,11 +566,12 @@ for g in GROUP_LABELS:
         print(f'  {g}: 生成平均={sub.mean():.2f}  (民調參考={ref})')
 
 # ── 11. 儲存 Excel ─────────────────────────────────────────────────────────
-out_path = BASE + "taipei_personas_3000_v2.xlsx"
+out_path = stage_path("v2")          # data/WIP/ 下，供 pipeline 下游 read_stage('v2') 讀取
+out_path.parent.mkdir(parents=True, exist_ok=True)
 with pd.ExcelWriter(out_path, engine='openpyxl') as writer:
 
     # Sheet 1: Personas
-    df_out.to_excel(writer, sheet_name='Personas', index=False)
+    df_out.to_excel(writer, sheet_name=PERSONAS_SHEET, index=False)
 
     # Sheet 2: 政黨傾向驗證（全市 + 各區）
     party_rows = []

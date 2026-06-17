@@ -17,14 +17,12 @@ taipei_property.py
 詳細方法論：method/property_column_methodology.md
 """
 
-import os
 import numpy as np
 import pandas as pd
 
-INPUT  = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_clan.xlsx")
-OUTPUT = os.path.join(os.path.dirname(__file__), "../data/taipei_personas_3000_property.xlsx")
+from pipeline_common import read_stage, write_stage
 
-df = pd.read_excel(INPUT)
+df = read_stage("clan")
 
 # ── 類別定義 ──────────────────────────────────────────────────────────────────
 CATEGORIES = ['自有（本人/配偶）', '自有（家人名義）', '租屋', '借住/配住']
@@ -111,5 +109,5 @@ print("\n=== 婚姻狀況 × 房產持有狀態 ===")
 print(df.groupby('婚姻狀況')['房產持有狀態'].value_counts(normalize=True).round(3).to_string())
 
 # ── 輸出 ──────────────────────────────────────────────────────────────────────
-df.to_excel(OUTPUT, index=False)
-print(f"\n已輸出：{OUTPUT}（{len(df)} 筆，{len(df.columns)} 欄）")
+out = write_stage(df, "property")
+print(f"\n已輸出：{out}（{len(df)} 筆，{len(df.columns)} 欄）")

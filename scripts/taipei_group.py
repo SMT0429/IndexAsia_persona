@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 
-df = pd.read_excel("data/taipei_personas_3000_religion.xlsx")
+from pipeline_common import read_stage, write_stage, make_rng, AGE_GROUP_LABELS
+
+df = read_stage("religion")
 
 ETHNICITIES = ['閩南', '客家', '外省', '原住民']
 
@@ -85,7 +87,7 @@ def assign_ethnicity(age_group: str, district: str, party: str, rng) -> str:
     return rng.choice(ETHNICITIES, p=p)
 
 
-rng = np.random.default_rng(seed=42)
+rng = make_rng()
 
 df['族群'] = df.apply(
     lambda row: assign_ethnicity(row['年齡組'], row['居住地'], row['政黨傾向'], rng),
@@ -98,12 +100,11 @@ dist = df['族群'].value_counts(normalize=True).reindex(ETHNICITIES)
 print(dist.round(3))
 
 print("\n=== 年齡組 × 族群交叉表 ===")
-age_order = ['15–24歲', '25–34歲', '35–44歲', '45–54歲', '55–64歲', '65歲以上']
 cross = pd.crosstab(
     df['年齡組'],
     df['族群'],
     normalize='index',
-)[ETHNICITIES].reindex(age_order).round(3)
+)[ETHNICITIES].reindex(AGE_GROUP_LABELS).round(3)
 print(cross)
 
 print("\n=== 居住地 × 外省比例 ===")
@@ -115,5 +116,5 @@ district_cross = (
 )
 print(district_cross)
 
-df.to_excel("data/taipei_personas_3000_group.xlsx", index=False)
-print("\n✅ 完成，已輸出至 data/taipei_personas_3000_group.xlsx（18 欄）")
+out = write_stage(df, "group")
+print(f"\n✅ 完成，已輸出至 {out}（18 欄）")

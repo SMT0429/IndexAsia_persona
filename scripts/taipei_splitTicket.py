@@ -11,13 +11,10 @@
 import os
 import pandas as pd
 
-BASE_DIR    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-INPUT_FILE  = os.path.join(BASE_DIR, 'data', 'taipei_personas_3000_group.xlsx')
-OUTPUT_FILE = os.path.join(BASE_DIR, 'data', 'taipei_personas_3000_splitTicket.xlsx')
+from pipeline_common import read_stage, write_stage, taipei_2020_path
 
-CEC_DIR    = os.path.join(BASE_DIR, 'taipei_data_2020')
-PRES_FILE  = os.path.join(CEC_DIR, '總統-A05-4-候選人得票數一覽表-各投開票所(臺北市).xls')
-PARTY_FILE = os.path.join(CEC_DIR, '不分區立委-A05-6-得票數一覽表(臺北市).xls')
+PRES_FILE  = taipei_2020_path('總統-A05-4-候選人得票數一覽表-各投開票所(臺北市).xls')
+PARTY_FILE = taipei_2020_path('不分區立委-A05-6-得票數一覽表(臺北市).xls')
 
 
 # ── 行政區校正（King 1997）─────────────────────────────────────────
@@ -133,7 +130,7 @@ def main():
         district_boost_map = {}
         print('⚠️  中選會資料未找到，區域校正暫時停用')
 
-    df = pd.read_excel(INPUT_FILE)
+    df = read_stage("group")
     df['分裂投票傾向'] = df.apply(
         lambda row: assign_split_ticket(row, district_boost_map), axis=1
     )
@@ -147,8 +144,8 @@ def main():
     print('\n── 各行政區平均拆票機率 ──')
     print(df.groupby('居住地')['分裂投票傾向'].mean().sort_values(ascending=False).round(3))
 
-    df.to_excel(OUTPUT_FILE, index=False)
-    print(f'\n✅ Done. 輸出至 {OUTPUT_FILE}')
+    out = write_stage(df, "splitTicket")
+    print(f'\n✅ Done. 輸出至 {out}')
 
 
 if __name__ == '__main__':
