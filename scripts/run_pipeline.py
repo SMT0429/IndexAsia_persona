@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-run_pipeline.py — 依 method/field_dependency_map.md §1 順序，一鍵跑完 12 階段 pipeline。
+run_pipeline.py — 依 method/field_dependency_map.md §1 順序，一鍵跑完 12 階段 pipeline，
+                  最後執行 taipei_finalize.py 產出 25 欄最終交付檔。
 
 設計重點：
   - 每階段以「獨立子行程」執行（subprocess）。這是刻意的：industry 使用 stdlib
@@ -51,6 +52,13 @@ def main() -> int:
             return result.returncode
         print(f"  ✓ {script} 完成（{time.time() - t0:.1f}s）", flush=True)
     print(f"\n✅ Pipeline 完成（{n}/{n}），總耗時 {time.time() - t_all:.1f}s。")
+
+    # 後處理：裁切交付欄位（移除宗教/說話風格/宗親），輸出帶時間戳的 25 欄最終檔。
+    print("\n[finalize] ▶ taipei_finalize.py", flush=True)
+    result = subprocess.run([sys.executable, str(SCRIPTS_DIR / "taipei_finalize.py")], cwd=SCRIPTS_DIR)
+    if result.returncode != 0:
+        print(f"\n✗ finalize 階段失敗（exit {result.returncode}）")
+        return result.returncode
     return 0
 
 

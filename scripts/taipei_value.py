@@ -1,7 +1,7 @@
 """
-taipei_value.py
-輸入：taipei_personas_3000_splitTicket.xlsx（19 欄）
-輸出：taipei_personas_3000_value.xlsx（19 + 4 = 23 欄）
+taipei_value.py  (v3.0 三變數重構版)
+輸入：taipei_personas_3000_splitTicket.xlsx
+輸出：taipei_personas_3000_value.xlsx（+4 欄）
 
 新增欄位：
   社會價值觀_CO分數     float  -10 至 +10（負=Conservation, 正=Openness）
@@ -9,12 +9,21 @@ taipei_value.py
   社會價值觀_主類型     str    開放關懷型 / 自主競爭型 / 傳統守望型 / 秩序菁英型
   社會價值觀_核心動機   str    對應主類型的核心動機句
 
+v3.0 變更：
+  - 輸入變數僅保留文獻證據最穩固的三項：年齡組、性別、教育程度
+  - 權重直接按文獻效果量等比例換算（1.0 軸負荷量 = 6.0 分）：
+      年齡×C-O 負荷 -.50 → ±3.0   （ESS R6: TRA +.32, STI -.32）
+      教育×C-O 負荷 +.27 → ±1.6   （ESS R6: SD +.16, TRA -.19）
+      年齡×S-T 負荷 +.37 → ±2.0   （ESS R6: UNI +.21, ACH -.27）
+      性別×S-T 負荷 ≈+.20 → ±1.2  （Schwartz & Rubel 2005: median d=.15, max d=.32）
+  - 宗教/政黨/國家認同/族群/收入/職業/媒體習慣全數移除，改列外部效標
 理論基礎：Schwartz Basic Human Values Theory（1992）
+文獻數據：Schwartz, Breyer & Danner (2015, ZIS/GESIS, ESS Round 6, N=54,673)
+          Schwartz & Rubel (2005, JPSP, 70 國 127 樣本, N=77,528)
 詳細方法論：method/values_column_methodology.md
 """
 
 import pandas as pd
-import numpy as np
 
 from pipeline_common import read_stage, write_stage
 
@@ -25,133 +34,46 @@ df = read_stage("splitTicket")
 def scale(series: pd.Series, raw_min: float, raw_max: float) -> pd.Series:
     return ((series - raw_min) / (raw_max - raw_min) * 20 - 10).round(2)
 
-def count_media(media_str) -> int:
-    if pd.isna(media_str) or str(media_str).strip() == "":
-        return 0
-    return len([m.strip() for m in str(media_str).split("、") if m.strip()])
-
-# ── C-O 軸賦值表 ─────────────────────────────────────────────────────────────
-# 年齡組：實際資料以6組計（15–24, 25–34, 35–44, 45–54, 55–64, 65+）
-# 方法論原始為5組（18-29, 30-44…）；此處依連續性做線性映射
+# ── 賦值表（權重 ∝ 文獻效果量，詳見方法論 3.2–3.3）──────────────────────────
+# 年齡組標籤使用 en-dash（–）
 
 AGE_CO = {
-    "15–24歲": 3.0,   # 對應方法論 18-29 → +3.0
-    "25–34歲": 2.0,   # 介於 18-29(+3) 與 30-44(+1) 之間
-    "35–44歲": 1.0,   # 對應方法論 30-44 → +1.0
-    "45–54歲": -1.0,
-    "55–64歲": -2.0,
+    "15–24歲": 3.0,
+    "25–34歲": 1.8,
+    "35–44歲": 0.6,
+    "45–54歲": -0.6,
+    "55–64歲": -1.8,
     "65歲以上": -3.0,
 }
 
 EDU_CO = {
-    "碩士以上": 2.0,
-    "大學":    1.0,
-    "專科":    0.0,   # 介於大學與高中之間
-    "高中(職)": -1.0,
-    "國中":    -2.0,
-    "國小以下": -2.0,
+    "碩士以上": 1.6,
+    "大學":    0.8,
+    "專科":    0.0,
+    "高中(職)": -0.8,
+    "國中":    -1.6,
+    "國小以下": -1.6,
 }
 
-# 宗教：含包含判斷（字串 partial match 兜底）
-RELIGION_CO = {
-    "無宗教":    2.0,
-    "基督新教":   0.0,
-    "天主教":    0.0,
-    "其他宗教":   0.0,
-    "佛教":    -1.0,
-    "道教":    -2.0,
-    "傳統民間信仰": -2.0,
-    "一貫道":   -2.0,   # 傳統民俗宗教，參照民間信仰
+AGE_ST = {
+    "15–24歲": -2.0,
+    "25–34歲": -1.2,
+    "35–44歲": -0.4,
+    "45–54歲": 0.4,
+    "55–64歲": 1.2,
+    "65歲以上": 2.0,
 }
 
-PARTY_CO = {
-    "民進黨":    2.0,
-    "台灣民眾黨":  1.0,
-    "其他政黨":   0.0,
-    "不知道/沒意見": 0.0,
-    "無黨籍":    0.0,
-    "國民黨":   -2.0,
-}
+GENDER_ST = {"女": 1.2, "男": -1.2}  # 其他/未填 → 0.0
 
-ETHNICITY_CO = {
-    "外省": -1.0,
-    "閩南":  0.0,
-    "客家":  0.0,
-    "原住民": 0.0,
-}
 
 def calc_co(row) -> float:
-    score = 0.0
+    return AGE_CO.get(str(row["年齡組"]), 0.0) + EDU_CO.get(str(row["教育程度"]), 0.0)
 
-    score += AGE_CO.get(str(row["年齡組"]), 0.0)
-    score += EDU_CO.get(str(row["教育程度"]), 0.0)
-
-    rel = str(row["宗教與地方信仰"])
-    score += RELIGION_CO.get(rel, 0.0)
-
-    score += PARTY_CO.get(str(row["政黨傾向"]), 0.0)
-
-    ni = float(row["國家認同"]) if pd.notna(row["國家認同"]) else 5.5
-    score += (5.5 - ni) * 0.5
-
-    score += ETHNICITY_CO.get(str(row["族群"]), 0.0)
-
-    return score
-
-# ── S-T 軸賦值表 ─────────────────────────────────────────────────────────────
-
-GENDER_ST = {"女": 2.0, "男": -1.0}
-
-EDU_ST = {
-    "碩士以上": 1.0,
-    "大學":    0.5,
-    "專科":    0.25,  # 介於大學與高中之間
-    "高中(職)": 0.0,
-    "國中":   -0.5,
-    "國小以下": -0.5,
-}
-
-INCOME_ST = {
-    "4萬以下":  1.0,
-    "4~6萬":   0.5,
-    "6~10萬":  0.0,
-    "10~15萬": -1.0,
-    "15~25萬": -2.0,  # 方法論的「>15萬」區間
-    "25萬以上": -2.0,
-}
-
-# 職業 → S-T 分數（fuzzy match 優先，精確 mapping 備用）
-def occ_st(occ: str) -> float:
-    if "管理" in occ or "主管" in occ:
-        return -2.0
-    if "專業" in occ or "技術" in occ or "工程" in occ:
-        return -1.0
-    if "服務" in occ or "銷售" in occ:
-        return 1.0
-    if "勞工" in occ or "工" in occ or "農" in occ:
-        return 1.0
-    if "事務" in occ:
-        return 0.0  # 事務人員：中性，介於服務與專業之間
-    return 0.0  # 退休、學生、家管、其他/待業
 
 def calc_st(row) -> float:
-    score = 0.0
+    return AGE_ST.get(str(row["年齡組"]), 0.0) + GENDER_ST.get(str(row["性別"]), 0.0)
 
-    score += GENDER_ST.get(str(row["性別"]), 0.0)
-    score += EDU_ST.get(str(row["教育程度"]), 0.0)
-    score += INCOME_ST.get(str(row["月收入區間"]), 0.0)
-    score += occ_st(str(row["職業"]))
-
-    rel = str(row["宗教與地方信仰"])
-    score += 0.0 if rel == "無宗教" else 1.0
-
-    n_media = count_media(row["媒體習慣"])
-    if n_media >= 4:
-        score += 1.0
-    elif n_media <= 1:
-        score += -0.5
-
-    return score
 
 # ── 計算原始分數 ──────────────────────────────────────────────────────────────
 
@@ -208,17 +130,38 @@ print("=== ST 軸統計 ===")
 print(df["社會價值觀_ST分數"].describe().round(2).to_string())
 print()
 
-# ── 驗證（方法論 7.1 理論一致性）────────────────────────────────────────────
+# ── 驗證 A：理論一致性（輸入變數，方法論 7.1）────────────────────────────────
 
-print("=== 驗證：65歲以上主類型 ===")
-print(df[df["年齡組"] == "65歲以上"]["社會價值觀_主類型"].value_counts(normalize=True).round(3).to_string())
+print("=== 驗證：65歲以上主類型（預期：傳統守望型最高）===")
+print(df[df["年齡組"] == "65歲以上"]["社會價值觀_主類型"]
+      .value_counts(normalize=True).round(3).to_string())
 print()
-print("=== 驗證：國民黨 vs 民進黨 CO 均值 ===")
+print("=== 驗證：女性 vs 男性 ST 均值（預期：女 > 男，小效果）===")
+for g in ["女", "男"]:
+    mean = df[df["性別"] == g]["社會價值觀_ST分數"].mean()
+    print(f"  {g}: ST 均值 = {mean:.2f}")
+print()
+print("=== 驗證：教育 × CO 均值（預期：隨教育程度上升）===")
+for e in ["國小以下", "國中", "高中(職)", "專科", "大學", "碩士以上"]:
+    sub = df[df["教育程度"] == e]
+    if len(sub):
+        print(f"  {e}: CO 均值 = {sub['社會價值觀_CO分數'].mean():.2f}")
+print()
+
+# ── 驗證 B：外部效標（不參與計分的變數，方法論 7.2）─────────────────────────
+
+print("=== 外部效標：國民黨 vs 民進黨 CO 均值（預期：民進黨 > 國民黨）===")
 for p in ["國民黨", "民進黨"]:
     mean = df[df["政黨傾向"] == p]["社會價值觀_CO分數"].mean()
     print(f"  {p}: CO 均值 = {mean:.2f}")
 print()
-print("=== 驗證：女性 vs 男性 ST 均值 ===")
-for g in ["女", "男"]:
-    mean = df[df["性別"] == g]["社會價值觀_ST分數"].mean()
-    print(f"  {g}: ST 均值 = {mean:.2f}")
+print("=== 外部效標：收入 × ST 均值（預期：高收入 ≤ 低收入）===")
+for inc in ["4萬以下", "4~6萬", "6~10萬", "10~15萬", "15~25萬", "25萬以上"]:
+    sub = df[df["月收入區間"] == inc]
+    if len(sub):
+        print(f"  {inc}: ST 均值 = {sub['社會價值觀_ST分數'].mean():.2f}")
+print()
+print("=== 外部效標：宗教有無 × CO 均值（預期：無宗教 > 有宗教）===")
+has_rel = df["宗教與地方信仰"].astype(str) != "無宗教"
+print(f"  無宗教: CO 均值 = {df.loc[~has_rel, '社會價值觀_CO分數'].mean():.2f}")
+print(f"  有宗教: CO 均值 = {df.loc[has_rel, '社會價值觀_CO分數'].mean():.2f}")

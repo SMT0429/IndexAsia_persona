@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from pipeline_common import read_stage, write_stage, data_path
+from pipeline_common import read_stage, write_stage, raw_path
 
-EVENTS_FILE = data_path("taiwan_political_events") / "taiwan_political_events.xlsx"
+EVENTS_FILE = raw_path("taiwan_political_events") / "taiwan_political_events.xlsx"
 
 YOUTH_MARKER = "成長經歷（非啟蒙年）"
 
