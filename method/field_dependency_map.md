@@ -1,7 +1,10 @@
 # Persona 欄位依賴關係圖
 
-**版本：** 2.3  
-**最後更新：** 2026-06-10  
+**版本：** 2.4  
+**最後更新：** 2026-06-24  
+**v2.4 變更（2026-06-24）：**
+- §一 finalize：全國版（`PERSONA_PROFILE=taiwan`）新增「臺北重用對照表」sidecar 輸出（`taiwan_persona_<ts>_taipei_crosswalk.csv`，`taiwan_id` ↔ `taipei_id` ↔ `行政區`），使併入的 314 位臺北市虛擬國民可回溯至台北市專版原始 `id` 與行政區；詳見下方 finalize 區塊。對照表組表邏輯置於新檔 `scripts/taipei_crosswalk.py`。
+
 **v2.3 變更（2026-06-10，依 `QA/reports/consistency_check_taipei_personas_3000_temp_20260610.md`）：**
 - §3.5 教育程度：專科最低年齡 17→**19**（issue 2）；新增「國小以下」年輕族群機率壓低遮罩（issue 5）
 - §3.6 職業：15 歲（含）以下強制學生（issue 1，原僅 ≤14 由機率覆蓋）
@@ -64,6 +67,9 @@ taipei_finalize.py（後處理；移除 宗教與地方信仰 / 說話風格_×3
 >
 > 中繼檔（v2…property）保留全部 30 欄供下游依賴計算（如價值觀/拆票需「宗教與地方信仰」）；
 > 宗教、說話風格、宗親 3 維度僅於 finalize 從**最終交付檔**移除，不影響 pipeline 內部計算。
+
+> **全國版（`PERSONA_PROFILE=taiwan`）finalize 額外處理**：上表 12 階段只生成台北以外 21 縣市的 2,686 筆；臺北市配額 314 筆於 finalize 併入——由 `region_profile.sample_taipei_reuse()`（固定種子）從 `data/taipei_final/` 抽樣，於覆寫前擷取來源 `id`/`居住地`，再將 `居住地` → 「臺北市」、`id` 重新編號（1–3000）後與生成列合併，輸出 `taiwan_final/taiwan_persona_<ts>.xlsx`（3000×25）。
+> 同時輸出**臺北重用對照表** sidecar `taiwan_final/taiwan_persona_<ts>_taipei_crosswalk.csv`（314 列；`taiwan_id` ↔ `taipei_id` ↔ `行政區`，附 `性別`/`年齡`），使這 314 位臺北市虛擬國民可逐筆回溯至台北市專版原始 `id` 與行政區（兩版實為同一批 agent，除 `id`/`居住地` 外 23 屬性欄逐欄相同）。組表邏輯：`scripts/taipei_crosswalk.py`——`build_crosswalk_from_source()` 供產檔當下精確組表、`build_crosswalk_by_attrs()` 供既有交付檔以屬性比對 backfill。
 
 ---
 

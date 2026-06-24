@@ -20,7 +20,7 @@ taipei_property.py
 import numpy as np
 import pandas as pd
 
-from pipeline_common import read_stage, write_stage
+from pipeline_common import read_stage, write_stage, PROFILE
 
 df = read_stage("clan")
 
@@ -29,6 +29,19 @@ CATEGORIES = ['自有（本人/配偶）', '自有（家人名義）', '租屋',
 
 # ── 台北市底層基準分布（109 年普查 + 推算） ────────────────────────────────────
 BASE = np.array([0.72, 0.06, 0.18, 0.04])
+
+# 全台版：各縣市底層基準改讀 housing.csv（t083 109 普查，欄序對齊 CATEGORIES）。
+REGION_BASE = {}
+if PROFILE == 'taiwan':
+    import region_profile as rp
+    _h = rp.load_housing()
+    REGION_BASE = {r: _h.loc[r, ['自有本人', '自有家人名義', '租屋', '借住配住']].values.astype(float)
+                   for r in _h.index}
+
+
+def base_for(region: str) -> np.ndarray:
+    """該 persona 所在地的房產底層基準（taiwan→縣市普查值；taipei→台北 BASE）。"""
+    return REGION_BASE.get(region, BASE) if PROFILE == 'taiwan' else BASE
 
 # ── 年齡乘數（方法論表 3.2，資料年齡組映射至乘數表） ────────────────────────────
 # 資料年齡組 → 方法論乘數鍵值
@@ -84,7 +97,7 @@ def sample_housing_status(row: pd.Series) -> str:
     im = INCOME_MULT.get(income, np.ones(4))
     mm = MARITAL_MULT.get(marital, np.ones(4))
 
-    weights = BASE * am * im * mm
+    weights = base_for(str(row.get('居住地', ''))) * am * im * mm
     weights = weights / weights.sum()
 
     rng = np.random.default_rng(pid)

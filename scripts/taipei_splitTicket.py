@@ -11,7 +11,7 @@
 import os
 import pandas as pd
 
-from pipeline_common import read_stage, write_stage, taipei_2020_path
+from pipeline_common import read_stage, write_stage, taipei_2020_path, PROFILE
 
 PRES_FILE  = taipei_2020_path('總統-A05-4-候選人得票數一覽表-各投開票所(臺北市).xls')
 PARTY_FILE = taipei_2020_path('不分區立委-A05-6-得票數一覽表(臺北市).xls')
@@ -51,6 +51,19 @@ def build_district_boost(pres_path: str, party_path: str) -> dict:
     norm  = (proxy - proxy.min()) / (proxy.max() - proxy.min())
     merged['boost'] = norm
     return dict(zip(merged['district'], merged['boost']))
+
+
+def build_county_boost() -> dict:
+    """全台版：以縣市為 key，從 election_pres/party CSV 算拆票 boost（同 King 1997 代理）。
+
+    proxy(縣市) = 總統 DPP% − 不分區 DPP%，跨 22 縣市標準化至 0–1。
+    """
+    import region_profile as rp
+    pres = rp.load_election_pres()['DPP']      # 縣市 → 總統 DPP 比例
+    party = rp.load_election_party()['DPP']     # 縣市 → 不分區 DPP 比例
+    proxy = (pres - party).dropna()
+    norm = (proxy - proxy.min()) / (proxy.max() - proxy.min())
+    return norm.to_dict()
 
 
 # ── 賦值函數 ───────────────────────────────────────────────────────
@@ -122,7 +135,11 @@ def assign_split_ticket(row, boost_map: dict) -> float:
 # ── 主程式 ────────────────────────────────────────────────────────
 
 def main():
-    if os.path.exists(PRES_FILE) and os.path.exists(PARTY_FILE):
+    if PROFILE == 'taiwan':
+        district_boost_map = build_county_boost()
+        print('✅ 縣市拆票基準率已載入（2020 中選會，election_pres/party CSV）')
+        print('   boost_map:', {k: round(v, 3) for k, v in sorted(district_boost_map.items())})
+    elif os.path.exists(PRES_FILE) and os.path.exists(PARTY_FILE):
         district_boost_map = build_district_boost(PRES_FILE, PARTY_FILE)
         print('✅ 行政區拆票基準率已載入（2020 中選會資料）')
         print('   boost_map:', {k: round(v, 3) for k, v in sorted(district_boost_map.items())})

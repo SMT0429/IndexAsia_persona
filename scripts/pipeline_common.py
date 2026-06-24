@@ -14,18 +14,36 @@ pipeline_common.py — Taipei persona pipeline 共用工具與常數
 詳細欄位依賴與規則以 method/field_dependency_map.md（v2.3）為權威來源。
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+# ── Profile（地理設定檔）─────────────────────────────────────────────────────
+# 以環境變數 PERSONA_PROFILE 切換 "taipei"（預設，回歸護欄）| "taiwan"（全台 22 縣市）。
+# 重要：PROFILE=="taipei" 時，下方一切常數須與「profile 化之前」逐位元組相同。
+PROFILE = os.environ.get("PERSONA_PROFILE", "taipei")
+
+# 每個 profile 的：交付檔前綴、樣本數、最終輸出目錄名。
+_PROFILE_CFG = {
+    "taipei": {"prefix": "taipei_personas_3000", "n_total": 3000, "final_dir": "taipei_final"},
+    "taiwan": {"prefix": "taiwan_personas_3000", "n_total": 3000, "final_dir": "taiwan_final"},
+}
+if PROFILE not in _PROFILE_CFG:
+    raise ValueError(f"未知 PERSONA_PROFILE={PROFILE!r}，可用：{list(_PROFILE_CFG)}")
+
+DATASET_PREFIX = _PROFILE_CFG[PROFILE]["prefix"]
+N_TOTAL = _PROFILE_CFG[PROFILE]["n_total"]
+
 # ── 路徑（CWD 無關，錨定 scripts/ 的上一層 = repo root）────────────────────────
-# data/ 重整為三層：raw/（原始輸入）、WIP/（pipeline 中繼）、taipei_final/（交付）。
+# data/ 重整為三層：raw/（原始輸入）、WIP/（pipeline 中繼）、<profile>_final/（交付）。
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"           # 原始輸入：Basic.xlsx、Political.xlsx、taiwan_political_events/…
-WIP_DIR = DATA_DIR / "WIP"           # pipeline 12 階段中繼檔（STAGE_FILES）
-FINAL_DIR = DATA_DIR / "taipei_final"  # 最終交付檔（taipei_finalize.py 輸出）
+WIP_DIR = DATA_DIR / "WIP"           # pipeline 12 階段中繼檔（STAGE_FILES；前綴含 profile 不會撞檔）
+FINAL_DIR = DATA_DIR / _PROFILE_CFG[PROFILE]["final_dir"]  # 交付檔（taipei→taipei_final、taiwan→taiwan_final）
+REGIONS_DIR = RAW_DIR / "regions"    # 全台 profile 的 region-keyed CSV（prep_taiwan_sources.py 產出）
 TAIPEI_DATA_DIR = RAW_DIR / "census"           # 普查來源（113_*.ods 等）
 TAIPEI_DATA_2020_DIR = RAW_DIR / "elections_2020"  # 2020 中選會 .xls
 
@@ -56,21 +74,13 @@ def taipei_2020_path(name: str) -> Path:
 
 
 # ── stage 檔名表與 sheet 契約 ─────────────────────────────────────────────────
-# key 對應 field_dependency_map.md §1 的 12 個 pipeline 階段。
-STAGE_FILES = {
-    "v2":            "taipei_personas_3000_v2.xlsx",
-    "politicalEvent": "taipei_personas_3000_politicalEvent.xlsx",
-    "industry":      "taipei_personas_3000_industry.xlsx",
-    "income":        "taipei_personas_3000_income.xlsx",
-    "religion":      "taipei_personas_3000_religion.xlsx",
-    "group":         "taipei_personas_3000_group.xlsx",
-    "splitTicket":   "taipei_personas_3000_splitTicket.xlsx",
-    "value":         "taipei_personas_3000_value.xlsx",
-    "topic":         "taipei_personas_3000_topic.xlsx",
-    "speakingStyle": "taipei_personas_3000_speakingStyle.xlsx",
-    "clan":          "taipei_personas_3000_clan.xlsx",
-    "property":      "taipei_personas_3000_property.xlsx",
-}
+# key 對應 field_dependency_map.md §1 的 12 個 pipeline 階段（順序具意義）。
+STAGE_KEYS = [
+    "v2", "politicalEvent", "industry", "income", "religion", "group",
+    "splitTicket", "value", "topic", "speakingStyle", "clan", "property",
+]
+# 由 DATASET_PREFIX 動態組出；PROFILE=="taipei" 時值與舊寫死字串逐位元組相同。
+STAGE_FILES = {k: f"{DATASET_PREFIX}_{k}.xlsx" for k in STAGE_KEYS}
 
 # v2 是唯一的多 sheet 工作簿；persona 資料在這張 sheet。
 # v2 的 ExcelWriter 與 read_stage('v2') 共用此常數，避免「靠第一張剛好是它」的脆弱。

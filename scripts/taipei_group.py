@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from pipeline_common import read_stage, write_stage, make_rng, AGE_GROUP_LABELS
+from pipeline_common import read_stage, write_stage, make_rng, AGE_GROUP_LABELS, PROFILE
 
 df = read_stage("religion")
 
@@ -89,10 +89,22 @@ def assign_ethnicity(age_group: str, district: str, party: str, rng) -> str:
 
 rng = make_rng()
 
-df['族群'] = df.apply(
-    lambda row: assign_ethnicity(row['年齡組'], row['居住地'], row['政黨傾向'], rng),
-    axis=1,
-)
+if PROFILE == 'taiwan':
+    # 全台版：直接讀 ethnic_base.csv 各縣市 {閩南,客家,外省,原住民} 比例（methodology §4），
+    # 依 persona 居住縣市抽樣（地理已內含於縣市比例，不再疊台北式行政區乘數）。
+    import region_profile as rp
+    eth = rp.load_ethnic_base()
+
+    def _assign_taiwan(region: str) -> str:
+        p = np.array([eth.loc[region, e] for e in ETHNICITIES], dtype=float)
+        return rng.choice(ETHNICITIES, p=p / p.sum())
+
+    df['族群'] = df['居住地'].apply(_assign_taiwan)
+else:
+    df['族群'] = df.apply(
+        lambda row: assign_ethnicity(row['年齡組'], row['居住地'], row['政黨傾向'], rng),
+        axis=1,
+    )
 
 # ── 驗證輸出 ──────────────────────────────────────────────
 print("=== 整體分布 ===")

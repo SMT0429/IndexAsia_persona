@@ -15,6 +15,7 @@ run_pipeline.py — 依 method/field_dependency_map.md §1 順序，一鍵跑完
     python run_pipeline.py                  # 從 scripts/
 """
 
+import os
 import subprocess
 import sys
 import time
@@ -22,9 +23,13 @@ from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 
+# 全台 profile：v2 demographics 改用 taiwan_persona_v2.py（只生成台北以外 21 縣市；
+# 台北 314 由 finalize 從 Taipei 3000 抽樣併入）。其餘階段同腳本、靠 PERSONA_PROFILE 切資料源。
+_V2 = "taiwan_persona_v2.py" if os.environ.get("PERSONA_PROFILE") == "taiwan" else "taipei_persona_v2.py"
+
 # 順序 = field_dependency_map.md §1（修改順序時請同步更新該文件）
 PIPELINE = [
-    "taipei_persona_v2.py",
+    _V2,
     "taipei_political_events.py",
     "taipei_industry.py",
     "taipei_income.py",
