@@ -2,7 +2,7 @@ import random
 import pandas as pd
 
 # 注意：本腳本刻意使用 stdlib random（非 numpy）；換 RNG 引擎會改變抽樣序列→改變輸出。
-from pipeline_common import read_stage, write_stage, NON_EMP_MARKER, NON_EMPLOYED_OCCS
+from pipeline_common import read_stage, write_stage, NON_EMP_MARKER, NON_EMPLOYED_OCCS, PROFILE
 
 INDUSTRIES = [
     '農林漁牧業', '製造業', '工程及公用事業', '批發及零售業',
@@ -74,7 +74,11 @@ TAIPEI_MULTIPLIER = {
 
 def sample_by_occupation(occupation: str) -> str:
     raw = OCCUPATION_INDUSTRY_MATRIX[occupation]
-    adjusted = {ind: raw[ind] * TAIPEI_MULTIPLIER[ind] for ind in INDUSTRIES}
+    # 全台版不套台北行業係數（各縣市職業結構已於 v2 反映地理差異）。
+    if PROFILE == 'taiwan':
+        adjusted = dict(raw)
+    else:
+        adjusted = {ind: raw[ind] * TAIPEI_MULTIPLIER[ind] for ind in INDUSTRIES}
     total = sum(adjusted.values())
     industries = list(adjusted.keys())
     weights = [adjusted[ind] / total for ind in industries]
