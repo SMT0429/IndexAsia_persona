@@ -1,12 +1,15 @@
 """
-taipei_finalize.py — pipeline 後處理：產出最終交付檔。
+taipei_finalize.py — pipeline 後處理：把最終交付寫進版本庫（SQLite）。
 
 輸入：taipei_personas_3000_property.xlsx（pipeline 終點，30 欄）
-輸出：data/taipei_final/taipei_persona_<YYYYMMDD_HHMMSS>.xlsx（25 欄）
+輸出：data/personas.db 的一個新版本（runs 一列 + personas 25 欄 × 3000 列）
 
 說明：
   這些維度仍須在 pipeline 中計算（下游維度有依賴，如價值觀/拆票用到「宗教與
-  地方信仰」），故僅在「全程跑完之後」於最終交付檔移除，不影響中繼計算。
+  地方信仰」），故僅在「全程跑完之後」於最終交付移除，不影響中繼計算。
+
+  產出去處改為 DB（不再每次吐時間戳 xlsx，避免檔案堆積）。要 Excel 時用
+  export_run.py 按需匯出某版本。DB 是唯一產出，故 DB 出錯即 fail-fast。
 
 移除欄位（5 欄；30 → 25，含 id）：
   宗教            → 宗教與地方信仰
@@ -18,7 +21,8 @@ from datetime import datetime
 
 import pandas as pd
 
-from pipeline_common import REPO_ROOT, FINAL_DIR, read_stage, PROFILE, N_TOTAL
+import persona_db
+from pipeline_common import read_stage, PROFILE, N_TOTAL, DEFAULT_SEED
 
 # 最終交付檔須移除的欄位（拿掉宗教、說話風格、宗親地方組織連結強度）
 DROP_COLS = [
@@ -46,7 +50,6 @@ def main() -> int:
             f"✗ 裁切後欄數 {len(out.columns)} ≠ 預期 {EXPECTED_COLS}，請檢查 pipeline 欄位異動。"
         )
 
-    name_prefix = "taipei_persona"
     crosswalk = None  # 全台 profile 才會組:台北重用列 ↔ Taipei 專版原始 id/行政區。
     if PROFILE == 'taiwan':
         # 併入台北重用樣本（從 Taipei 3000 抽 N_台北 筆，欄位對齊後 concat → 3000×25）。
@@ -70,21 +73,22 @@ def main() -> int:
             tp_source.assign(性別=tp['性別'].values, 年齡=tp['年齡'].values),
             taiwan_ids=range(1, quota + 1),
         )
-        name_prefix = "taiwan_persona"
         print(f"  併入台北重用 {quota} 筆 + 生成 {len(out) - quota} 筆 = {len(out)} 筆")
 
-    FINAL_DIR.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    dest = FINAL_DIR / f"{name_prefix}_{ts}.xlsx"
-    out.to_excel(dest, index=False)
+    # 產出去處：寫進版本庫（不再吐 xlsx）。DB 出錯應讓 pipeline fail-fast。
+    meta = {
+        "profile": PROFILE,
+        "seed": DEFAULT_SEED,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "source": "pipeline",
+    }
+    run_id = persona_db.insert_run(out, meta, crosswalk=crosswalk)
 
-    print(f"✓ 最終交付檔：{dest.relative_to(REPO_ROOT)}（{len(out)} 筆 × {len(out.columns)} 欄）")
+    print(f"✓ 版本已寫入 DB：run_id={run_id}（{len(out)} 筆 × {len(out.columns)} 欄，profile={PROFILE}）")
     print(f"  已移除：{'、'.join(DROP_COLS)}")
-
     if crosswalk is not None:
-        from taipei_crosswalk import crosswalk_dest, write_crosswalk
-        cw_dest = write_crosswalk(crosswalk, crosswalk_dest(dest))
-        print(f"  對照表（台北重用 ↔ Taipei 原始 id/行政區）：{cw_dest.relative_to(REPO_ROOT)}（{len(crosswalk)} 筆）")
+        print(f"  對照表（台北重用 ↔ Taipei 原始 id/行政區）：{len(crosswalk)} 筆（存於 crosswalks 表）")
+    print(f"  要 Excel：python scripts/export_run.py --run-id {run_id}")
 
     return 0
 

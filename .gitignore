@@ -14,3 +14,8 @@ __pycache__/
 
 # Pipeline 中繼檔（可由 scripts/run_pipeline.py 重生，不入庫）
 data/WIP/
+
+# Persona 版本庫：personas.db 本身入庫（版本歷史的主要持久層），
+# 但 WAL/SHM 為執行期暫存，不該進 git。
+data/personas.db-wal
+data/personas.db-shm
