@@ -43,7 +43,7 @@ DATA_DIR = REPO_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"           # 原始輸入：Basic.xlsx、Political.xlsx、taiwan_political_events/…
 WIP_DIR = DATA_DIR / "WIP"           # pipeline 12 階段中繼檔（STAGE_FILES；前綴含 profile 不會撞檔）
 FINAL_DIR = DATA_DIR / _PROFILE_CFG[PROFILE]["final_dir"]  # 交付檔（taipei→taipei_final、taiwan→taiwan_final）
-REGIONS_DIR = RAW_DIR / "regions"    # 全台 profile 的 region-keyed CSV（prep_taiwan_sources.py 產出）
+REGIONS_DIR = DATA_DIR / "derived" / "regions"  # 全台 profile 的 region-keyed CSV（prep_taiwan_sources.py 由 raw/taiwan/ 清洗產出的衍生檔）
 TAIPEI_DATA_DIR = RAW_DIR / "census"           # 普查來源（113_*.ods 等）
 TAIPEI_DATA_2020_DIR = RAW_DIR / "elections_2020"  # 2020 中選會 .xls
 

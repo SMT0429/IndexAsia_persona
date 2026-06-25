@@ -3,7 +3,7 @@
 taiwan_persona_v2.py — 全台 profile 的 demographics 生成（v2 階段）。
 
 只生成「台北以外」的 21 縣市（台北 314 由 finalize 從 Taipei 3000 抽樣併入）。
-資料來源：data/raw/regions/*.csv（prep_taiwan_sources.py 產出，經 region_profile loaders）。
+資料來源：data/derived/regions/*.csv（prep_taiwan_sources.py 產出，經 region_profile loaders）。
 欄位與類別字串刻意對齊 Taipei 版（碩士以上/高中(職)/國小以下、民進黨…、X(Twitter)…），
 使 finalize 與台北重用列 concat 後 schema 一致。
 

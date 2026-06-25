@@ -6,7 +6,7 @@ region_profile.py — 全台 persona 的「地理設定檔」抽象與 region-ke
   - REGIONS / REGION_NAMES：22 縣市清單（臺北市標記 reuse，不重新生成）。
   - allocate(n_total)：把 N 依人口佔比分配到各縣市（最大餘數法，每縣市至少 1）。
     臺北市配額單獨回傳（由 finalize 從既有 Taipei 3000 抽樣帶入，不進生成管線）。
-  - load_*()：讀 data/raw/regions/*.csv，回傳 region/age-keyed 結構。
+  - load_*()：讀 data/derived/regions/*.csv，回傳 region/age-keyed 結構。
   - sample_taipei_reuse(n)：從最新 data/taipei_final/*.xlsx 隨機抽 n 筆（25 欄成品）。
 
 資料來源由 scripts/prep_taiwan_sources.py 產生。
@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-REGIONS_DIR = REPO_ROOT / "data" / "raw" / "regions"
+REGIONS_DIR = REPO_ROOT / "data" / "derived" / "regions"
 TAIPEI_FINAL_DIR = REPO_ROOT / "data" / "taipei_final"
 
 REUSE_COUNTIES = {'臺北市'}

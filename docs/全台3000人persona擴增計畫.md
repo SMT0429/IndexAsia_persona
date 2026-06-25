@@ -9,7 +9,7 @@
 
 | 階段 | 產物 | 狀態 |
 |---|---|---|
-| 資料前處理 `scripts/prep_taiwan_sources.py` | `data/raw/regions/` **10 個 region-keyed CSV** | ✅ 完成且驗證（客家梯度、原民花東高、政黨南北差、族群全國回算閩.75/客.11/外.11/原.027） |
+| 資料前處理 `scripts/prep_taiwan_sources.py` | `data/derived/regions/` **10 個 region-keyed CSV** | ✅ 完成且驗證（客家梯度、原民花東高、政黨南北差、族群全國回算閩.75/客.11/外.11/原.027） |
 | 地理設定檔 `scripts/region_profile.py` | 3000→22 縣市配額（台北 314…總和 3000）、loaders、`sample_taipei_reuse()` | ✅ 完成且驗證 |
 | `pipeline_common.py` profile 化 | `PROFILE`、STAGE_FILES 工廠、N_TOTAL、FINAL_DIR | ✅ 完成（taipei 值逐位元組不變） |
 | `scripts/taiwan_persona_v2.py` | 全台 demographics（21 縣市 2686 列，類別字串對齊台北版） | ✅ 完成且驗證 |
@@ -120,7 +120,7 @@
 ## 架構擴增設計（RegionProfile）
 
 ### 1. 地理模型 — 取代寫死的 `DISTRICTS`
-- 新增單一真相來源 `data/raw/regions/regions.csv`：每列一個地理單位
+- 新增單一真相來源 `data/derived/regions/regions.csv`：每列一個地理單位
   （欄位：`region_code, region_name, parent_county, level(county|district), pop_15plus`）。
   - 22 縣市；六都展開為行政區，其餘 16 縣市保持縣市層級。
   - 哪些都會細分由 profile 設定（預設六都，可調）。
@@ -134,7 +134,7 @@
 - `census_loader` / `election_loader`：依 region 回傳該單位的 census/選舉分布
   （台北 profile = 現行 `.ods` row-index 路徑；全台 profile = 縣市別新檔）。
 - `param_tables`：族群/宗親/產業/婚姻等**參數表改成資料檔**
-  （`data/raw/regions/{ethnic_base,clan_tier,industry_mult,marriage_rate}.csv`，以 region 或 region_tier 為 key），
+  （`data/derived/regions/{ethnic_base,clan_tier,industry_mult,marriage_rate}.csv`，以 region 或 region_tier 為 key），
   取代 [taipei_group.py:30](scripts/taipei_group.py#L30)、[taipei_clan.py:30](scripts/taipei_clan.py#L30)、
   [taipei_industry.py:57](scripts/taipei_industry.py#L57)、[taipei_persona_v2.py:160](scripts/taipei_persona_v2.py#L160) 的寫死 dict。
 
@@ -204,7 +204,7 @@ finalize 階段多一步「併入台北重用樣本」（見 §6）。
 (b) `t083.xlsx` P01 取 4 類算各縣市占比；
 (c) 選舉 `.xls`（總統 A05-2＋不分區立委 A05-6）彙總成「縣市/區 × 政黨」得票；
 (d) 族群依 methodology §4 四步驟（原民法定→客家×k→外省眷村係數→閩南殘差）算各縣市四族比例。
-產物落 `data/raw/regions/{regions,census_*,election_*,housing,ethnic_base}.csv`，供各 stage 的 loader 讀取。
+產物落 `data/derived/regions/{regions,census_*,election_*,housing,ethnic_base}.csv`，供各 stage 的 loader 讀取。
 
 ---
 

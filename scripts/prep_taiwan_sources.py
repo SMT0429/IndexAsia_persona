@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 prep_taiwan_sources.py — 把 data/raw/taiwan/ 的異質原始檔，清洗成 region-keyed CSV，
-                         落在 data/raw/regions/ 供全台 pipeline 各 stage 的 loader 讀取。
+                         落在 data/derived/regions/ 供全台 pipeline 各 stage 的 loader 讀取。
 
 設計原則：
   - 一個 build_* 函式對應一個輸出 CSV，彼此獨立、可單獨重跑。
   - 縣市名一律正規化為「無空格、用『臺』」的標準形（來源檔常含全形空格，如『臺 北 市』）。
   - 只做「資料對齊」，不做任何抽樣/建模（那是 stage 腳本的事）。
 
-輸出（data/raw/regions/）：
+輸出（data/derived/regions/）：
   regions.csv         22 縣市 + 人口佔比（3000 配額權重）；臺北市標記 reuse
   census_gender.csv   縣市 × 男/女比例
   census_age.csv      縣市 × 年齡組 人數
@@ -19,7 +19,7 @@ prep_taiwan_sources.py — 把 data/raw/taiwan/ 的異質原始檔，清洗成 r
   housing.csv         縣市 × 自有/租用/配住/其他 戶數
   election_party.csv  縣市 × 政黨 不分區立委得票（2020 第10屆）
   election_pres.csv   縣市 × 候選人 總統得票（2020 第15任）
-  ethnic_base.csv     縣市 × 閩南/客家/外省/原住民 比例（依 taiwan_ethnicity_methodology.md §4）
+  ethnic_base.csv     縣市 × 閩南/客家/外省/原住民 比例（依 method/taiwan_ethnicity_methodology.md §4）
 """
 
 from pathlib import Path
@@ -28,7 +28,7 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RAW_TAIWAN = REPO_ROOT / "data" / "raw" / "taiwan"
-OUT_DIR = REPO_ROOT / "data" / "raw" / "regions"
+OUT_DIR = REPO_ROOT / "data" / "derived" / "regions"
 
 POP_FILE = RAW_TAIWAN / "taiwan_persona人口分布.xlsx"
 AGE_FILE = RAW_TAIWAN / "taiwan_age" / "縣市人口按單齡-109年12月.xls"
@@ -409,7 +409,7 @@ def build_election_pres() -> pd.DataFrame:
     return out
 
 
-# ── ethnic_base.csv（依 taiwan_clan/taiwan_ethnicity_methodology.md §4-6）──────
+# ── ethnic_base.csv（依 method/taiwan_ethnicity_methodology.md §4-6）──────
 ETHNIC_CLASSES = ['閩南', '客家', '外省', '原住民']
 
 # §6 客委會 110 年寬定義客家比率（%）。

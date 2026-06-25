@@ -182,7 +182,7 @@ def p_married(age, district):
     base = float(p_married_5yr[idx])
     return min(base * district_marry_factor.get(district, 1.0), 1.0)
 
-# ── 5. 職業（113_career.png 數字，臺北市就業結構）────────────────────────────
+# ── 5. 職業（method/reference/113_career.png 數字，臺北市就業結構）────────────────────────────
 # OCC_CATS（7 職業類別，有序）由 pipeline_common 匯入（去重，值不變）
 _occ_raw = np.array([418, 1236, 581, 1059, 761, 4, 650], dtype=float)
 TAIPEI_OCC_W = _occ_raw / _occ_raw.sum()
